@@ -1,0 +1,85 @@
+body {
+    background: linear-gradient(to right, #e0f7fa, #ffffff); /* Gradient background */
+    font-family: 'Roboto', sans-serif;
+    overflow: hidden; /* Prevent scrolling for a cleaner look */
+}
+
+.container {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    padding: 40px;
+    margin-top: 100px;
+    transition: transform 0.2s, box-shadow 0.3s; /* Added box-shadow transition */
+    border: 1px solid #e0e0e0; /* Light border for better definition */
+}
+
+.container:hover {
+    transform: translateY(-5px); /* Hover effect */
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3); /* Enhanced shadow on hover */
+}
+
+h2 {
+    color: #007bff;
+    margin-bottom: 30px;
+    text-align: center;
+    font-weight: 500; /* Bold font */
+    font-size: 2rem; /* Larger heading */
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border: none;
+    transition: background-color 0.3s, transform 0.2s;
+    font-size: 1.2rem; /* Larger button text */
+    padding: 12px 20px; /* More padding */
+    border-radius: 8px; /* Rounded button */
+    position: relative; /* For pseudo-element positioning */
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    transform: scale(1.05);
+}
+
+.btn-primary:after {
+    content: "";
+    position: absolute;
+    background: rgba(255, 255, 255, 0.3);
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    border-radius: 8px; /* Rounded corners */
+    opacity: 0;
+    transition: opacity 0.3s; /* Fade effect on hover */
+}
+
+.btn-primary:hover:after {
+    opacity: 1; /* Show overlay on hover */
+}
+
+.form-control {
+    height: 60px; /* Increased height */
+    padding: 12px; /* More padding */
+    font-size: 1.1rem; /* Larger font size */
+    border: 2px solid #ced4da; /* Border color */
+    border-radius: 8px; /* Rounded corners */
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-group {
+    margin-bottom: 20px; /* Space between fields */
+}
+
+.footer {
+    text-align: center;
+    margin-top: 30px;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
