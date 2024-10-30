@@ -1,0 +1,143 @@
+html, body {
+    height: 100%; /* ???? ?????? ?????? 100% */
+    margin: 0; /* ????? ?????? ????????? */
+    padding: 0; /* ????? ????? ????????? */
+}
+
+* {
+    font-family: 'Tajawal', sans-serif; /* ????? ???? ??? ???? ??????? */
+}
+
+.ai-app-background {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    height: 100vh; /* ???? ?? ?? ??????? ???? 100% ?? ?????? */
+    padding: 20px;
+    background: url('https://i.giphy.com/pw2fLKLW3mgw.webp') no-repeat center center fixed;
+    background-size: cover;
+    position: relative; /* ???? ??? ????? ?????? */
+    overflow: hidden; /* ???? ?? ??? ???? ?? ????? ???? */
+}
+
+/* Optional: ????? ????? overlay ???? */
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(31, 31, 31, 0.5); /* ???? ????? */
+    z-index: 1; /* ???? ?? ???? ?? ?????? */
+}
+
+/* ????? ?????? ??????? ??? ?? ????? ???? */
+h2 {
+    color: #fff;
+    margin-bottom: 25px;
+    font-weight: bold;
+    font-size: 2.5rem;
+    text-shadow: 2px 2px 8px rgba(234, 223, 223, 0.7);
+    letter-spacing: 1px;
+    text-align: center;
+    background: linear-gradient(to right, #283c86, #1e2e5c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Form styles */
+.form {
+    /* Remove background and border */
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: none; /* Remove shadow */
+    text-align: right; /* Align text to the right */
+    width: 100%;
+    max-width: 500px; /* Increase max width for larger screens */
+    min-height: 400px; /* Increase min height for taller forms */
+    position: relative; /* Make sure the form is positioned relative to its container */
+    z-index: 2; /* Higher z-index to ensure it appears above the overlay */
+}
+
+/* Adjust form group styles */
+.form-group {
+    margin-bottom: 10px;
+}
+
+/* Styles for labels */
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: #333;
+    font-weight: bold;
+}
+
+/* Input styles */
+input, .select-input, .details-textarea {
+    width: 100%;
+    padding: 10px 15px;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: none; /* Remove border */
+    background: rgba(255, 255, 255, 0.9); /* Light background for inputs */
+    transition: all 0.3s;
+    margin-bottom: 10px; /* Space between inputs */
+}
+
+input:focus, .select-input:focus, .details-textarea:focus {
+    outline: none; /* Remove the outline */
+    box-shadow: 0 0 8px rgba(40, 60, 134, 0.3); /* Focus shadow */
+}
+
+/* Specific styles for the textarea */
+.details-textarea {
+    resize: none; /* Prevent resizing */
+}
+
+/* Submit button styles */
+.submit-btn {
+    width: 100%;
+    padding: 15px;
+    background: #283c86;
+    color: #fff;
+    font-size: 1.2rem;
+    border: none; /* Remove border */
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: bold;
+}
+
+.submit-btn:hover {
+    background: #1e2e5c;
+    transform: scale(1.05);
+}
+
+/* Response box styles */
+.response-box {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 8px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.success {
+    background: #4caf50;
+}
+
+.error {
+    background: #f44336;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .form {
+        padding: 20px; /* Reduce padding on smaller screens */
+        min-height: 350px; /* Adjust min-height for smaller screens */
+    }
+
+    h2 {
+        font-size: 1.5rem; /* Reduce font size for headings on smaller screens */
+    }
+}
