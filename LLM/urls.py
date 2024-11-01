@@ -1,8 +1,7 @@
 from django.urls import path
-from . import views
+from .views import OpenaiAPIView, NewsDetailAPIView
 
-news = views.OpenaiView()
 urlpatterns = [
-    path('create/', news.create_news, name='create_news'),
-    path('<int:pk>/', news.news_detail, name='news_detail'),
+    path('create/', OpenaiAPIView.as_view(), name='create_news'),
+    path('create/<int:pk>/', NewsDetailAPIView.as_view(), name='news_detail'),  # For GET requests
 ]

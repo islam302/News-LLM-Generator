@@ -54,7 +54,7 @@
             box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
         }
         .form-group {
-            margin-bottom: 20px; /* Space between fields */
+            margin-bottom: 20px;
         }
         .footer {
             text-align: center;
@@ -70,9 +70,9 @@
         <form method="POST">
             {% csrf_token %}
             {{ form.as_p }}
-            <button type="submit" class="btn btn-primary w-100">Generate News</button>
+            <button type="submit" class="btn btn-primary w-100">أنشئ الخبر</button>
         </form>
-        <div class="footer">Powered by  AI </div> <!-- Footer message -->
+        <div class="footer">Powered by  AI </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"></script>

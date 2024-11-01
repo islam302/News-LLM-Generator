@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تعديل {{ article.title }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        /* أنماط بسيطة لتصميم الصفحة */
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
+            padding: 20px;
+        }
+        .form-container {
+            max-width: 600px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .form-container h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        .form-container label {
+            margin: 10px 0;
+            display: block;
+        }
+        .form-container input, .form-container textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .submit-btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+        }
+        .submit-btn:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+
+<div class="form-container">
+    <h1>تعديل الخبر</h1>
+    <form method="POST">
+        {% csrf_token %}
+        <label for="title">العنوان</label>
+        <input type="text" id="title" name="title" value="{{ article.title }}" required>
+
+        <label for="content">المحتوى</label>
+        <textarea id="content" name="content" rows="5" required>{{ article.content }}</textarea>
+
+        <button type="submit" class="submit-btn">تحديث</button>
+    </form>
+</div>
+
+</body>
+</html>
