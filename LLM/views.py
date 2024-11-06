@@ -1,11 +1,16 @@
 import os
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, viewsets
 from dotenv import load_dotenv
 import openai
 from .models import NewsArticle
 from .serializers import NewsArticleSerializer
+import requests
+from bs4 import BeautifulSoup
+import urllib.parse
+import json
+from django.http import JsonResponse
 
 
 class OpenaiAPIView(APIView):
@@ -80,3 +85,94 @@ class NewsDetailAPIView(APIView):
             return Response(serializer.data)
         except NewsArticle.DoesNotExist:
             return Response({'error': 'News article not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class AskOpenaiView(viewsets.ViewSet):
+
+    def __init__(self):
+        load_dotenv()
+        openai.api_key = os.getenv('OPENAI_API_KEY')
+
+    def search_in_una(self, query):
+        encoded_query = urllib.parse.quote(query)
+        search_url = f'https://una-oic.org/?s={encoded_query}'
+        try:
+            response = requests.get(search_url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            articles = []
+            for post_item in soup.find_all('li', class_='post-item'):
+                title_tag = post_item.find('h2', class_='post-title')
+                link_tag = title_tag.find('a') if title_tag else None
+                excerpt_tag = post_item.find('p', class_='post-excerpt')
+                image_tag = post_item.find('img')
+
+                if link_tag and excerpt_tag:
+                    title = link_tag.text.strip()
+                    link = link_tag['href']
+                    content = excerpt_tag.text.strip()
+                    image_url = image_tag['src'] if image_tag else None
+                    articles.append({
+                        'title': title,
+                        'link': link,
+                        'content': content,
+                        'image_url': image_url
+                    })
+                if len(articles) >= 5:
+                    break
+            return articles
+        except Exception as e:
+            print(f"Error fetching search results: {e}")
+            return []
+
+    def get_article_content(self, url):
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            title = soup.title.string if soup.title else "No title found"
+            paragraphs = soup.find_all('p')
+            content = ' '.join([p.get_text() for p in paragraphs if p.get_text()])
+            return title, content
+        except Exception as e:
+            print(f"Error fetching content from {url}: {e}")
+            return "No title found", "No content found"
+
+    def contact_with_openai(self, question, search_results):
+        search_links = "\n".join(search_results)
+        prompt = f"ابحث عن اجابة دقيقة لهذا السؤال: \"{question}\". استخدم المعلومات التالية للاجابة: {search_links}"
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=300,
+                temperature=0.0
+            )
+            message = response.choices[0].message['content'].strip()
+            if "none" in message.lower() or not message:
+                return "لم أستطع العثور على معلومات دقيقة."
+            return message
+        except openai.error.RateLimitError:
+            print("حدث خطأ بسبب الحد الأقصى لعدد الطلبات. يرجى المحاولة لاحقًا.")
+            return "خطأ في الحد الأقصى للطلب. يرجى المحاولة لاحقًا."
+        except Exception as e:
+            print(f"حدث خطأ: {e}")
+            return str(e)
+
+    def question(self, request):
+        if request.method == 'OPTIONS':
+            response = HttpResponse()
+            response['Access-Control-Allow-Origin'] = '*'
+            response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+            response['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRFToken'
+            return response
+
+        if request.method == 'POST':
+            try:
+                data = json.loads(request.body)
+                question = data.get('question', '').strip()
+                search_results = self.search_in_una(question)
+                return JsonResponse({'question': question, 'answer': search_results}, status=200)
+            except json.JSONDecodeError:
+                return JsonResponse({'error': 'Invalid JSON format'}, status=400)
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=500)

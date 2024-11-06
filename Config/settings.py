@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-#u9zusey#veg&an3!#)v6pc%v1fu(f&h=_i6(6k&nf(5j@_*)1
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["news-llm-generator.onrender.com"]
+ALLOWED_HOSTS = ["news-llm-generator.onrender.com", '127.0.0.1']
 
 
 # Application definition
