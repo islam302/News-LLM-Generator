@@ -1,8 +1,13 @@
+# urls.py
 from django.urls import path
-from .views import OpenaiAPIView, NewsDetailAPIView, AskOpenaiView
+from .views import NewsDetailAPIView, OpenaiAPIView
 
 urlpatterns = [
-    path('create/', OpenaiAPIView.as_view(), name='create_news'),
-    path('create/<int:pk>/', NewsDetailAPIView.as_view(), name='news_detail'),
-    path('ask_una/', AskOpenaiView.as_view({'post': 'question'}), name='ask_una')
+    # URL pattern for creating news articles using OpenAI
+    path('create/', OpenaiAPIView.as_view(), name='openai_create'),
+
+    # URL patterns for News Detail View
+    path('news/', NewsDetailAPIView.as_view({'get': 'list', 'post': 'create'}), name='news_list'),
+    path('news/<int:pk>/', NewsDetailAPIView.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}),
+         name='news_detail'),
 ]
