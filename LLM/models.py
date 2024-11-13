@@ -1,9 +1,8 @@
 from django.db import models
 
 class NewsArticle(models.Model):
-
-    news_type = models.CharField(max_length=10)
-    details = models.TextField(null=True, blank=True)
+    news_type = models.CharField(max_length=100)
+    details = models.TextField()
 
     def __str__(self):
-        return self.title
+        return f"{self.news_type} - {self.details[:50]}"

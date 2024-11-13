@@ -1,48 +1,37 @@
-import os
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, viewsets
-from dotenv import load_dotenv
-import openai
-from .models import NewsArticle
-from .serializers import NewsArticleSerializer
-import requests
-from bs4 import BeautifulSoup
+from rest_framework import status
+from rest_framework.views import APIView
 from django.urls import reverse
-import urllib.parse
-import json
-from django.http import JsonResponse
-
+from .models import NewsArticle
+from .serializers import NewsArticleCreateSerializer, NewsArticleSerializer
+import openai
+import os
+from dotenv import load_dotenv
 
 class OpenaiAPIView(APIView):
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         load_dotenv()
         openai.api_key = os.getenv('OPENAI_API_KEY')
 
-    def generate_news_content(self, news_type, details, what=None, who=None, where=None, when=None, how=None, why=None):
+    def generate_news_content(self, news_type, place, source, event, date, participants, event_details):
         prompt = f"""
-        أريدك أن تساعدني في تحرير خبر'
-        ونوعية الخبر هي '{news_type}'
+        أريدك أن تساعدني في تحرير خبر.
 
-        هذه بعض المعلومات الأساسية التي يجب تضمينها في الخبر لضمان اكتماله:
+        تصنيف الخبر: '{news_type}'
+        - المكان: '{place}'
+        - المصدر: '{source}'
+        - الحدث: '{event}'
+        - اليوم والتاريخ: '{date}'
+        - المشاركون: '{participants}'
+        - تفاصيل الحدث المتوفرة: '{event_details}'
 
-        - ماذا حدث؟ '{what}' (وصف الحدث)
-        - من شارك في الحدث؟ '{who}' (الشخصيات أو الجهات المشاركة)
-        - أين وقع الحدث؟ '{where}' (المكان)
-        - متى وقع الحدث؟ '{when}' (الزمان)
-        - كيف وقع الحدث؟ '{how}' (الطريقة - إذا كانت متوفرة)
-        - لماذا وقع الحدث؟ '{why}' (السبب أو الخلفية - إذا كانت متوفرة)
-
-        يرجى كتابة خبر يشمل مقدمة واضحة، تفاصيل دقيقة حول الخبر، أهمية الموضوع، وآثار التعاون بين الأطراف المعنية. يجب أن يكون المحتوى غنيًا وشاملاً ويجيب على الأسئلة الأساسية على الأقل (ماذا، من، متى، أين) لضمان كمال الخبر.
+        يرجى كتابة خبر يشمل مقدمة واضحة، تفاصيل دقيقة حول الخبر، أهمية الموضوع، وآثار التعاون بين الأطراف المعنية. يجب أن يكون المحتوى غنيًا وشاملاً ويجيب على الأسئلة الأساسية لضمان كمال الخبر.
         """
 
         response = openai.ChatCompletion.create(
             model="gpt-4",
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "user", "content": prompt}],
             max_tokens=7000,
             temperature=0.7
         )
@@ -51,31 +40,33 @@ class OpenaiAPIView(APIView):
         return content
 
     def post(self, request):
-
-        serializer = NewsArticleSerializer(data=request.data)
+        serializer = NewsArticleCreateSerializer(data=request.data)
         if serializer.is_valid():
-
             news_type = serializer.validated_data['news_type']
-            what = serializer.validated_data.get('what')
-            who = serializer.validated_data.get('who')
-            where = serializer.validated_data.get('where')
-            when = serializer.validated_data.get('when')
-            how = serializer.validated_data.get('how')
-            why = serializer.validated_data.get('why')
+            place = serializer.validated_data['place']
+            source = serializer.validated_data['source']
+            event = serializer.validated_data['event']
+            date = serializer.validated_data['date']
+            participants = serializer.validated_data['participants']
+            event_details = serializer.validated_data['event_details']
 
-            generated_content = self.generate_news_content(news_type, what, who, where, when, how, why)
+            # Generate the content using OpenAI
+            generated_content = self.generate_news_content(
+                news_type, place, source, event, date, participants, event_details
+            )
 
+            # Save to the database
             news_article = NewsArticle.objects.create(
                 news_type=news_type,
                 details=generated_content
             )
 
-            return Response(
-                {'url': reverse('news_detail', kwargs={'pk': news_article.pk})},
-                status=status.HTTP_201_CREATED
-            )
+            # Return the response with the created news article's details
+            response_serializer = NewsArticleSerializer(news_article)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class NewsDetailAPIView(APIView):
     def get(self, request, pk):
@@ -83,5 +74,13 @@ class NewsDetailAPIView(APIView):
             news_article = NewsArticle.objects.get(pk=pk)
             serializer = NewsArticleSerializer(news_article)
             return Response(serializer.data)
+        except NewsArticle.DoesNotExist:
+            return Response({'error': 'News article not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, pk):
+        try:
+            news_article = NewsArticle.objects.get(pk=pk)
+            news_article.delete()
+            return Response({'message': 'News article deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
         except NewsArticle.DoesNotExist:
             return Response({'error': 'News article not found'}, status=status.HTTP_404_NOT_FOUND)
