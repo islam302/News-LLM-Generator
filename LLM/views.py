@@ -32,7 +32,7 @@ class OpenaiAPIView(APIView):
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=7000,
+            max_tokens=300,
             temperature=0.7
         )
 
