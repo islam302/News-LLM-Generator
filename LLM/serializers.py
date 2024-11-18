@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import NewsArticle
+from .models import NewsArticle, NewsTemplate
+
 
 class NewsArticleCreateSerializer(serializers.Serializer):
     news_type = serializers.CharField(max_length=100)
@@ -10,7 +11,14 @@ class NewsArticleCreateSerializer(serializers.Serializer):
     participants = serializers.CharField(max_length=200)
     event_details = serializers.CharField()
 
+
 class NewsArticleSerializer(serializers.ModelSerializer):
     class Meta:
         model = NewsArticle
-        fields = ['id', 'news_type', 'details']  # Only model fields needed for display
+        fields = ['id', 'news_type', 'details']
+
+
+class NewsTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NewsTemplate
+        fields = ['id', 'news_type', 'templates']
