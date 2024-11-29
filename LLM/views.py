@@ -7,9 +7,9 @@ from .serializers import NewsArticleCreateSerializer, NewsArticleSerializer, New
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
 import openai
 import random
-import os
 from dotenv import load_dotenv
 from rest_framework.viewsets import ModelViewSet
+import os
 
 
 
@@ -20,25 +20,27 @@ class OpenaiAPIView(APIView):
         load_dotenv()
         openai.api_key = os.getenv('OPENAI_API_KEY')
 
-    def generate_news_content(self, news_type, place, source, event, date, participants, event_details):
+    def generate_news_content(self, news_type, place, source, event, date, participants, event_details, creation_type):
         try:
             template_obj = NewsTemplate.objects.filter(news_type=news_type).first()
+            if creation_type == "template_only":
+                if template_obj and template_obj.templates:
+                    template = random.choice(template_obj.templates)
+                    content = template.format(
+                        news_type=news_type,
+                        place=place,
+                        source=source,
+                        event=event,
+                        date=date,
+                        participants=participants,
+                        event_details=event_details
+                    )
+                    return content
+                else:
+                    return "No templates available for this news type."
 
-            if template_obj and template_obj.templates:
-                template = random.choice(template_obj.templates)
-                print(template)
-                # Format the template with user input
-                content = template.format(
-                    news_type=news_type,
-                    place=place,
-                    source=source,
-                    event=event,
-                    date=date,
-                    participants=participants,
-                    event_details=event_details
-                )
-                return content
-            else:
+            elif creation_type == "openai_only":
+                # فقط استخدام OpenAI
                 prompt = f"""
                 أريدك أن تساعدني في تحرير خبر.
                 وافق قواعد الصياغة الصحفية للأخبار
@@ -60,6 +62,39 @@ class OpenaiAPIView(APIView):
                 )
                 return response.choices[0].message['content'].strip()
 
+            elif creation_type == "hybrid":
+                # الدمج بين الاثنين
+                if template_obj and template_obj.templates:
+                    template = random.choice(template_obj.templates)
+                    formatted_content = template.format(
+                        news_type=news_type,
+                        place=place,
+                        source=source,
+                        event=event,
+                        date=date,
+                        participants=participants,
+                        event_details=event_details
+                    )
+                    # إضافة النص الناتج من OpenAI
+                    prompt = f"""
+                    أريدك أن تساعدني في تحرير خبر بناءً على هذا النص المبدئي:
+                    {formatted_content}
+
+                    وافق قواعد الصياغة الصحفية للأخبار
+                    تأكد من أن النص يكون واضحًا، موجزًا، ويستخدم لغة إعلامية دقيقة.
+                    """
+                    response = openai.ChatCompletion.create(
+                        model="gpt-4",
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=1000,
+                        temperature=0.7
+                    )
+                    return response.choices[0].message['content'].strip()
+                else:
+                    return self.generate_news_content(
+                        news_type, place, source, event, date, participants, event_details, "openai_only"
+                    )
+
         except Exception as e:
             print(f"Error generating news content: {e}")
             return "Error generating content."
@@ -74,13 +109,12 @@ class OpenaiAPIView(APIView):
             date = serializer.validated_data['date']
             participants = serializer.validated_data['participants']
             event_details = serializer.validated_data['event_details']
+            creation_type = serializer.validated_data.get('creation_type', 'template_only')  # Default to "template_only"
 
-            # Generate content dynamically using the templates
             generated_content = self.generate_news_content(
-                news_type, place, source, event, date, participants, event_details
+                news_type, place, source, event, date, participants, event_details, creation_type
             )
 
-            # Save the generated news article
             news_article = NewsArticle.objects.create(
                 news_type=news_type,
                 details=generated_content
@@ -95,7 +129,6 @@ class OpenaiAPIView(APIView):
 class NewsDetailAPIView(ModelViewSet):
     queryset = NewsArticle.objects.all()
     serializer_class = NewsArticleSerializer
-
 
 class NewsTemplateViewSet(ModelViewSet):
     queryset = NewsTemplate.objects.all()

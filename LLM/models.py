@@ -11,7 +11,7 @@ class NewsArticle(models.Model):
 
 class NewsTemplate(models.Model):
     news_type = models.CharField(max_length=100, unique=True)
-    templates = models.JSONField()  # Use models.JSONField here
+    templates = models.JSONField()
 
     def __str__(self):
         return self.news_type

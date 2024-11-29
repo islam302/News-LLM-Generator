@@ -3,13 +3,14 @@ from .models import NewsArticle, NewsTemplate
 
 
 class NewsArticleCreateSerializer(serializers.Serializer):
-    news_type = serializers.CharField(max_length=100)
-    place = serializers.CharField(max_length=100)
-    source = serializers.CharField(max_length=100)
-    event = serializers.CharField(max_length=100)
-    date = serializers.CharField(max_length=50)
-    participants = serializers.CharField(max_length=200)
-    event_details = serializers.CharField()
+    news_type = serializers.CharField(max_length=255)
+    place = serializers.CharField(max_length=255)
+    source = serializers.CharField(max_length=255)
+    event = serializers.CharField(max_length=255)
+    date = serializers.DateField()
+    participants = serializers.CharField(max_length=255)
+    event_details = serializers.CharField(max_length=1000)
+    creation_type = serializers.ChoiceField(choices=['template_only', 'openai_only', 'hybrid'], required=False)
 
 
 class NewsArticleSerializer(serializers.ModelSerializer):
