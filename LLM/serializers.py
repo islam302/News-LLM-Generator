@@ -7,9 +7,9 @@ class NewsArticleCreateSerializer(serializers.Serializer):
     place = serializers.CharField(max_length=255)
     source = serializers.CharField(max_length=255)
     event = serializers.CharField(max_length=255)
-    date = serializers.DateField()
+    date = serializers.CharField(max_length=255)
     participants = serializers.CharField(max_length=255)
-    event_details = serializers.CharField(max_length=1000)
+    event_details = serializers.CharField(max_length=2000)
     creation_type = serializers.ChoiceField(choices=['template_only', 'openai_only', 'hybrid'], required=False)
 
 

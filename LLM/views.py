@@ -37,7 +37,7 @@ class OpenaiAPIView(APIView):
                     )
                     return content
                 else:
-                    return "No templates available for this news type."
+                    return "لا يوجد قالب جاهز لهذا النوع من الأخبار"
 
             elif creation_type == "openai_only":
                 # فقط استخدام OpenAI
@@ -123,6 +123,7 @@ class OpenaiAPIView(APIView):
             response_serializer = NewsArticleSerializer(news_article)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
