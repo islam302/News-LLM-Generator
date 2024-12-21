@@ -10,8 +10,7 @@ class NewsArticle(models.Model):
 
 
 class NewsTemplate(models.Model):
-    news_type = models.CharField(max_length=100, unique=True)
+    news_type = models.CharField(max_length=255)
+    name = models.CharField(max_length=255)
     templates = models.JSONField()
-
-    def __str__(self):
-        return self.news_type
+    fields = models.JSONField(default=dict)

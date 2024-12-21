@@ -1,17 +1,17 @@
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.views import APIView
-from django.urls import reverse
-from .models import NewsArticle, NewsTemplate
 from .serializers import NewsArticleCreateSerializer, NewsArticleSerializer, NewsTemplateSerializer
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
+from rest_framework.viewsets import ModelViewSet
+from .models import NewsArticle, NewsTemplate
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
+from dotenv import load_dotenv
+from django.urls import reverse
 import openai
 import random
-from dotenv import load_dotenv
-from rest_framework.viewsets import ModelViewSet
+import json
 import os
-
-
+from rest_framework.decorators import action
 
 class OpenaiAPIView(APIView):
 
@@ -20,86 +20,135 @@ class OpenaiAPIView(APIView):
         load_dotenv()
         openai.api_key = os.getenv('OPENAI_API_KEY')
 
-    def generate_news_content(self, news_type, place, source, event, date, participants, event_details, creation_type):
+    def generate_news_content(
+            self,
+            news_type,
+            place=None,
+            source=None,
+            event=None,
+            date=None,
+            participants=None,
+            event_details=None,
+            additional_variables=None,
+            creation_type="template_only",
+            template_id=None  # Added template_id to select a specific template
+    ):
         try:
-            template_obj = NewsTemplate.objects.filter(news_type=news_type).first()
-            if creation_type == "template_only":
-                if template_obj and template_obj.templates:
-                    template = random.choice(template_obj.templates)
-                    content = template.format(
-                        news_type=news_type,
-                        place=place,
-                        source=source,
-                        event=event,
-                        date=date,
-                        participants=participants,
-                        event_details=event_details
-                    )
-                    return content
-                else:
-                    return "لا يوجد قالب جاهز لهذا النوع من الأخبار"
+            # Default variables
+            variables = {
+                "news_type": news_type,
+                "place": place or "",
+                "source": source or "",
+                "event": event or "",
+                "date": date or "",
+                "participants": participants or "",
+                "event_details": event_details or "",
+            }
 
+            # Process additional variables
+            if additional_variables:
+                if isinstance(additional_variables, str):
+                    try:
+                        additional_variables = json.loads(additional_variables)  # Convert string to dictionary
+                    except json.JSONDecodeError:
+                        return "المتغيرات الإضافية يجب أن تكون في شكل قاموس (Dictionary)."
+                if isinstance(additional_variables, dict):
+                    variables.update(additional_variables)
+                else:
+                    return "المتغيرات الإضافية يجب أن تكون في شكل قاموس (Dictionary)."
+
+            if template_id:  # If template_id is provided, use it to fetch the specific template
+                template_obj = NewsTemplate.objects.filter(id=template_id).first()
+                if template_obj and template_obj.templates:
+                    template = template_obj.templates  # احصل على القالب الصحيح
+                    print(f"Using template: {template}")  # طباعة القالب
+
+            if creation_type == "template_only":
+                if template:
+
+                    filtered_variables = {
+                        key: value for key, value in variables.items() if f"{{{key}}}" in template
+                    }
+
+                    print(f"Filtered variables: {filtered_variables}")
+
+                    try:
+                        content = template.format(**filtered_variables)
+                        print(f"Generated content: {content}")
+                    except KeyError as e:
+                        return f"هناك متغير مفقود في القالب: {e}"
+                    return content
+
+            # If creation_type is "openai_only"
             elif creation_type == "openai_only":
-                # فقط استخدام OpenAI
+                # Construct OpenAI prompt
                 prompt = f"""
                 أريدك أن تساعدني في تحرير خبر.
-                وافق قواعد الصياغة الصحفية للأخبار
-                تأكد من أن النص يكون واضحًا، موجزًا، ويستخدم لغة إعلامية دقيقة بدون التأثير علي المعلومات الموجودة.
-
+                وافق قواعد الصياغة الصحفية للأخبار.
+                تأكد من أن النص يكون واضحًا، موجزًا، ويستخدم لغة إعلامية دقيقة بدون التأثير على المعلومات الموجودة.
                 تصنيف الخبر: '{news_type}'
-                - المكان: '{place}'
-                - المصدر: '{source}'
-                - الحدث: '{event}'
-                - اليوم والتاريخ: '{date}'
-                - المشاركون: '{participants}'
-                - تفاصيل الحدث المتوفرة: '{event_details}'
+                {f"- المكان: '{place}'" if place else ""}
+                {f"- المصدر: '{source}'" if source else ""}
+                {f"- الحدث: '{event}'" if event else ""}
+                {f"- اليوم والتاريخ: '{date}'" if date else ""}
+                {f"- المشاركون: '{participants}'" if participants else ""}
+                {f"- تفاصيل الحدث المتوفرة: '{event_details}'" if event_details else ""}
+                {''.join([f"- {key}: '{value}'" for key, value in additional_variables.items()]) if additional_variables else ""}
+                محتاج الخبر يكون في حدود 100 كلمة.
                 """
                 response = openai.ChatCompletion.create(
-                    model="gpt-4",
+                    model="gpt-3.5-turbo",
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=1000,
                     temperature=0.7
                 )
                 return response.choices[0].message['content'].strip()
 
+            # If creation_type is "hybrid"
             elif creation_type == "hybrid":
-                # الدمج بين الاثنين
                 if template_obj and template_obj.templates:
-                    template = random.choice(template_obj.templates)
-                    formatted_content = template.format(
-                        news_type=news_type,
-                        place=place,
-                        source=source,
-                        event=event,
-                        date=date,
-                        participants=participants,
-                        event_details=event_details
-                    )
-                    # إضافة النص الناتج من OpenAI
+                    # Use the specific template if template_id is provided or the first template otherwise
+                    template = template_obj.templates[0]
+
+                    # Filter variables to include only those present in the template
+                    filtered_variables = {
+                        key: value for key, value in variables.items() if f"{{{key}}}" in template
+                    }
+
+                    # Replace placeholders with values
+                    try:
+                        formatted_content = template.format(**filtered_variables)
+                    except KeyError as e:
+                        return f"هناك متغير مفقود في القالب: {e}"
+
+                    # Construct OpenAI prompt with the formatted content
                     prompt = f"""
                     أريدك أن تساعدني في تحرير خبر بناءً على هذا النص المبدئي:
                     {formatted_content}
-
-                    وافق قواعد الصياغة الصحفية للأخبار
+                    وافق قواعد الصياغة الصحفية للأخبار.
                     تأكد من أن النص يكون واضحًا، موجزًا، ويستخدم لغة إعلامية دقيقة.
+                    محتاج الخبر يكون في حدود 100 كلمة.
                     """
                     response = openai.ChatCompletion.create(
-                        model="gpt-4",
+                        model="gpt-3.5-turbo",
                         messages=[{"role": "user", "content": prompt}],
                         max_tokens=1000,
                         temperature=0.7
                     )
                     return response.choices[0].message['content'].strip()
                 else:
+                    # If no template is available, fall back to "openai_only"
                     return self.generate_news_content(
-                        news_type, place, source, event, date, participants, event_details, "openai_only"
+                        news_type, place, source, event, date, participants, event_details, additional_variables,
+                        "openai_only"
                     )
 
         except Exception as e:
             print(f"Error generating news content: {e}")
-            return "Error generating content."
+            return "حدث خطأ أثناء إنشاء المحتوى."
 
     def post(self, request):
+        print("Received request data:", request.data)  # Debugging log
         serializer = NewsArticleCreateSerializer(data=request.data)
         if serializer.is_valid():
             news_type = serializer.validated_data['news_type']
@@ -109,10 +158,13 @@ class OpenaiAPIView(APIView):
             date = serializer.validated_data['date']
             participants = serializer.validated_data['participants']
             event_details = serializer.validated_data['event_details']
-            creation_type = serializer.validated_data.get('creation_type', 'template_only')  # Default to "template_only"
+            additional_variables = serializer.validated_data.get('additional_variables', {})
+            creation_type = serializer.validated_data.get('creation_type', 'template_only')
+            template_id = request.data.get('template_id')  # استلام template_id من الطلب
 
             generated_content = self.generate_news_content(
-                news_type, place, source, event, date, participants, event_details, creation_type
+                news_type, place, source, event, date, participants, event_details,
+                additional_variables, creation_type, template_id=template_id
             )
 
             news_article = NewsArticle.objects.create(
@@ -123,7 +175,6 @@ class OpenaiAPIView(APIView):
             response_serializer = NewsArticleSerializer(news_article)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
-        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -131,209 +182,22 @@ class NewsDetailAPIView(ModelViewSet):
     queryset = NewsArticle.objects.all()
     serializer_class = NewsArticleSerializer
 
+
 class NewsTemplateViewSet(ModelViewSet):
     queryset = NewsTemplate.objects.all()
     serializer_class = NewsTemplateSerializer
 
+    @action(detail=True, methods=['get'])
+    def fields(self, request, pk=None):
+        """
+        API للحصول على الحقول بناءً على رقم القالب
+        """
 
-# class OpenaiAPIView(APIView):
-#
-#     def __init__(self, **kwargs):
-#         super().__init__(**kwargs)
-#         load_dotenv()
-#         openai.api_key = os.getenv('OPENAI_API_KEY')
-#
-#     # def generate_news_content(self, news_type, place, source, event, date, participants, event_details):
-#     #
-#     #     NEWS_TEMPLATES = {
-#     #         "زيارة": [
-#     #             """
-#     #             اليوم في {place}، قام {participants} بزيارة هامة لمناقشة {event}.
-#     #             تم التأكيد على أهمية {event_details} خلال اللقاء الذي جرى بتاريخ {date}.
-#     #             وأكد المصدر {source} أن هذا الحدث يمثل نقطة تحول في {news_type}.
-#     #             """,
-#     #             """
-#     #             في حدث بارز بتاريخ {date}، استضاف {place} زيارة {participants}.
-#     #             وركز النقاش حول {event}، مما يعكس أهمية {event_details}.
-#     #             وفقًا لـ {source}، فإن هذا الحدث يشكل أهمية كبيرة لنوع الخبر: {news_type}.
-#     #             """
-#     #         ],
-#     #         "عقد مؤتمر": [
-#     #             """
-#     #             في مؤتمر هام عقد في {place} بتاريخ {date}، اجتمع {participants} لمناقشة {event}.
-#     #             وأكدت المصادر {source} أن {event_details} كانت محور النقاش، مع التركيز على تعزيز التعاون الدولي.
-#     #             """,
-#     #             """
-#     #             تم عقد مؤتمر مميز في {place} بتاريخ {date}، بمشاركة {participants}.
-#     #             ركز المؤتمر على {event}، حيث أشار المصدر {source} إلى أهمية {event_details} للمستقبل.
-#     #             """
-#     #         ],
-#     #         "عقد ورشة عمل": [
-#     #             """
-#     #             تم عقد ورشة عمل في {place} بتاريخ {date}، شارك فيها {participants}.
-#     #             ركزت الورشة على {event}، وأبرزت {event_details} كأحد أهم مخرجات النقاش.
-#     #             """,
-#     #             """
-#     #             في {place}، أقيمت ورشة عمل بتاريخ {date} بمشاركة {participants}.
-#     #             تناولت الورشة {event} بالتفصيل، مع التأكيد على {event_details}.
-#     #             """
-#     #         ],
-#     #         "افتتاح وتدشين": [
-#     #             """
-#     #             في {place}، شهد {participants} بتاريخ {date} افتتاحًا رسميًا لتدشين {event}.
-#     #             ووفقًا للمصدر {source}، فإن {event_details} يعكس أهمية المشروع للمنطقة.
-#     #             """,
-#     #             """
-#     #             بتاريخ {date}، تم افتتاح {event} في {place} بحضور {participants}.
-#     #             وأكد المصدر {source} أن هذا الافتتاح يمثل تطورًا هامًا، حيث تم التركيز على {event_details}.
-#     #             """
-#     #         ],
-#     #     }
-#     #
-#     #     templates = NEWS_TEMPLATES.get(news_type, None)
-#     #
-#     #     if templates:
-#     #         template = random.choice(templates)
-#     #
-#     #         raw_content = template.format(
-#     #             news_type=news_type,
-#     #             place=place,
-#     #             source=source,
-#     #             event=event,
-#     #             date=date,
-#     #             participants=participants,
-#     #             event_details=event_details
-#     #         )
-#     #
-#     #         prompt = f"""
-#     #         أريدك أن تعيد صياغة النص التالي باللغة العربية بطريقة محسنة ومهنية وتوافق قواعد الصياغة الصحفية للأخبار:
-#     #
-#     #         {raw_content}
-#     #
-#     #         تأكد من أن النص يكون واضحًا، موجزًا، ويستخدم لغة إعلامية دقيقة بدون التأثير علي المعلومات الموجودة.
-#     #         """
-#     #
-#     #         try:
-#     #             response = openai.ChatCompletion.create(
-#     #                 model="gpt-4",
-#     #                 messages=[{"role": "user", "content": prompt}],
-#     #                 max_tokens=300,
-#     #                 temperature=0.5
-#     #             )
-#     #             improved_content = response.choices[0].message['content'].strip()
-#     #             return improved_content
-#     #         except Exception as e:
-#     #             print(f"Error with OpenAI: {e}")
-#     #             return raw_content
-#     #     else:
-#     #         return "نوع الخبر غير مدعوم."
-#
-#     def generate_news_content(self, news_type, place, source, event, date, participants, event_details):
-#
-#         NEWS_TEMPLATES = {
-#             "زيارة": [
-#                 """
-#                 اليوم في {place}، قام {participants} بزيارة هامة لمناقشة {event}.
-#                 تم التأكيد على أهمية {event_details} خلال اللقاء الذي جرى بتاريخ {date}.
-#                 وأكد المصدر {source} أن هذا الحدث يمثل نقطة تحول في {news_type}.
-#                 """,
-#                 """
-#                 في حدث بارز بتاريخ {date}، استضاف {place} زيارة {participants}.
-#                 وركز النقاش حول {event}، مما يعكس أهمية {event_details}.
-#                 وفقًا لـ {source}، فإن هذا الحدث يشكل أهمية كبيرة لنوع الخبر: {news_type}.
-#                 """
-#             ],
-#             "عقد مؤتمر": [
-#                 """
-#                 في مؤتمر هام عقد في {place} بتاريخ {date}، اجتمع {participants} لمناقشة {event}.
-#                 وأكدت المصادر {source} أن {event_details} كانت محور النقاش، مع التركيز على تعزيز التعاون الدولي.
-#                 """,
-#                 """
-#                 تم عقد مؤتمر مميز في {place} بتاريخ {date}، بمشاركة {participants}.
-#                 ركز المؤتمر على {event}، حيث أشار المصدر {source} إلى أهمية {event_details} للمستقبل.
-#                 """
-#             ],
-#             "عقد ورشة عمل": [
-#                 """
-#                 تم عقد ورشة عمل في {place} بتاريخ {date}، شارك فيها {participants}.
-#                 ركزت الورشة على {event}، وأبرزت {event_details} كأحد أهم مخرجات النقاش.
-#                 """,
-#                 """
-#                 في {place}، أقيمت ورشة عمل بتاريخ {date} بمشاركة {participants}.
-#                 تناولت الورشة {event} بالتفصيل، مع التأكيد على {event_details}.
-#                 """
-#             ],
-#             "افتتاح وتدشين": [
-#                 """
-#                 في {place}، شهد {participants} بتاريخ {date} افتتاحًا رسميًا لتدشين {event}.
-#                 ووفقًا للمصدر {source}، فإن {event_details} يعكس أهمية المشروع للمنطقة.
-#                 """,
-#                 """
-#                 بتاريخ {date}، تم افتتاح {event} في {place} بحضور {participants}.
-#                 وأكد المصدر {source} أن هذا الافتتاح يمثل تطورًا هامًا، حيث تم التركيز على {event_details}.
-#                 """
-#             ],
-#         }
-#
-#         templates = NEWS_TEMPLATES.get(news_type, None)
-#
-#         if templates:
-#             template = random.choice(templates)
-#
-#             content = template.format(
-#                 news_type=news_type,
-#                 place=place,
-#                 source=source,
-#                 event=event,
-#                 date=date,
-#                 participants=participants,
-#                 event_details=event_details
-#             )
-#             return content
-#         else:
-#             prompt = f"""
-#             أريدك أن تساعدني في تحرير خبر.
-#             وافق قواعد الصياغة الصحفية للأخبار
-#             تأكد من أن النص يكون واضحًا، موجزًا، ويستخدم لغة إعلامية دقيقة بدون التأثير علي المعلومات الموجودة.
-#
-#             تصنيف الخبر: '{news_type}'
-#             - المكان: '{place}'
-#             - المصدر: '{source}'
-#             - الحدث: '{event}'
-#             - اليوم والتاريخ: '{date}'
-#             - المشاركون: '{participants}'
-#             - تفاصيل الحدث المتوفرة: '{event_details}'
-#             """
-#             response = openai.ChatCompletion.create(
-#                 model="gpt-4",
-#                 messages=[{"role": "user", "content": prompt}],
-#                 max_tokens=1000,
-#                 temperature=0.7
-#             )
-#
-#             return response.choices[0].message['content'].strip()
-#
-#     def post(self, request):
-#         serializer = NewsArticleCreateSerializer(data=request.data)
-#         if serializer.is_valid():
-#             news_type = serializer.validated_data['news_type']
-#             place = serializer.validated_data['place']
-#             source = serializer.validated_data['source']
-#             event = serializer.validated_data['event']
-#             date = serializer.validated_data['date']
-#             participants = serializer.validated_data['participants']
-#             event_details = serializer.validated_data['event_details']
-#
-#             generated_content = self.generate_news_content(
-#                 news_type, place, source, event, date, participants, event_details
-#             )
-#
-#             news_article = NewsArticle.objects.create(
-#                 news_type=news_type,
-#                 details=generated_content
-#             )
-#
-#             response_serializer = NewsArticleSerializer(news_article)
-#             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-#
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        template = self.get_object()  # Fetch the template by ID
+        return Response({
+            "id": template.id,
+            "news_type": template.news_type,
+            "templates": template.templates,
+        })
+        return Response({"error": "Template not found"}, status=404)
+
