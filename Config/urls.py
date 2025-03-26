@@ -6,4 +6,5 @@ from LLM import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('llm/', include('LLM.urls')),
+    path('auth/', include('authentication.urls')),
 ]
